@@ -420,7 +420,8 @@
     isBallInPlay = YES;
 }
 
--(void) newBall {
+-(void) newBall
+{
     [self buildBallAtStartingPosition:ccp(150,200)
                    withInitialImpulse:b2Vec2(0.2,-1.5)];
 }
@@ -496,19 +497,22 @@
 }
 
 #pragma mark Level Complete
--(void) prepareForTransition {
+-(void) prepareForTransition
+{
     [self destroyHUD];
     [self scheduleOnce:@selector(goToNextLevel) delay:1.0];
 }
 
--(void) goToNextLevel {
+-(void) goToNextLevel
+{
     [gh setCurrentLevel:[gh currentLevel]+1];
     [[CCDirector sharedDirector]
      replaceScene:[BRPlayfieldScene scene]];
 }
 
 #pragma mark Game Over
--(void) prepareForGameOver {
+-(void) prepareForGameOver
+{
     isGameOver = YES;
     
     levelLabel = [CCLabelTTF labelWithString:@"Game Over"
@@ -521,7 +525,8 @@
     [self scheduleOnce:@selector(gameOver) delay:3.0];
 }
 
--(void) gameOver {
+-(void) gameOver
+{
     
     [gh resetGame];
     
@@ -867,6 +872,71 @@
                                                            ccp(0,size.height/2))];
     [hudLayer runAction:flyOut];
 }
+
+
+#pragma mark Touch Handlers
+-(void)ccTouchesBegan:(NSSet *)touches withEvent:(UIEvent *)event
+{
+	if (mouseJoint != NULL) return;
+	
+	UITouch *myTouch = [touches anyObject];
+	CGPoint location = [myTouch locationInView:[myTouch view]];
+	location = [[CCDirector sharedDirector]
+                convertToGL:location];
+	b2Vec2 locationWorld = b2Vec2(location.x/PTM_RATIO,
+                                  location.y/PTM_RATIO);
+	
+    // We want our any touches in the bottom part of the
+    // screen to control the paddle
+    if (location.y < 150)
+    {
+		b2MouseJointDef md;
+		md.bodyA = wallBody;
+		md.bodyB = paddleBody;
+		md.target = locationWorld;
+		md.collideConnected = true;
+		md.maxForce = 1000.0f * paddleBody->GetMass();
+		
+		mouseJoint = (b2MouseJoint *)world->CreateJoint(&md);
+		paddleBody->SetAwake(true);
+	}
+}
+
+-(void)ccTouchesMoved:(NSSet *)touches withEvent:(UIEvent *)event
+{
+    
+	if (mouseJoint == NULL) return;
+	
+    if (isGameOver) return;
+    
+	UITouch *myTouch = [touches anyObject];
+	CGPoint location = [myTouch locationInView:[myTouch view]];
+	location = [[CCDirector sharedDirector]
+                convertToGL:location];
+	b2Vec2 locationWorld = b2Vec2(location.x/PTM_RATIO,
+                                  location.y/PTM_RATIO);
+    
+	mouseJoint->SetTarget(locationWorld);
+}
+
+-(void)ccTouchesCancelled:(NSSet *)touches
+                withEvent:(UIEvent *)event
+{
+	if(mouseJoint)
+    {
+		world->DestroyJoint(mouseJoint);
+		mouseJoint = NULL;
+	}
+}
+
+-(void)ccTouchesEnded:(NSSet *)touches withEvent:(UIEvent *)event
+{
+    if (mouseJoint) {
+        world->DestroyJoint(mouseJoint);
+        mouseJoint = NULL;
+    }
+}
+
 
 #pragma mark - Dealloc
 
